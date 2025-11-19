@@ -72,6 +72,7 @@ public class Reponse implements Serializable {
         consultations.add(c);
     }
 
+
     @Override
     public String toString() {
         return "Reponse{" +
@@ -79,5 +80,14 @@ public class Reponse implements Serializable {
                 ", id=" + id +
                 ", consultations=" + consultations +
                 '}';
+    }
+
+    // Compatibilité avec le code du serveur (CAP)
+    public boolean isSucces() {
+        return bool;
+    }
+
+    public int getCode() {
+        return id;
     }
 }

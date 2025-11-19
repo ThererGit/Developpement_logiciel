@@ -9,6 +9,8 @@ import entity.Doctor;
 import entity.Specialty;
 import entity.Consultation;
 
+import viewmodel.DoctorSearchVM;
+
 import java.time.LocalDate;
 import java.time.LocalTime;
 
@@ -24,10 +26,6 @@ public class testDAOs {
 
         // --- 2) Test READ : load() ---
 
-        System.out.println("=== Patients ===");
-        for (Patient p : patientDAO.load()) {
-            System.out.println(p);
-        }
 
         System.out.println("\n=== Specialties ===");
         for (Specialty s : specialtyDAO.load()) {
@@ -38,6 +36,31 @@ public class testDAOs {
         for (Doctor d : doctorDAO.load()) {
             System.out.println(d);
         }
+
+        System.out.println("\n=== Liste des logins des docteurs ===");
+        for (Doctor d : doctorDAO.getList()) {
+            System.out.println("Doctor " + d.getLastName() + " → login=" + d.getLogin());
+        }
+
+
+        System.out.println("\n=== Logins via DoctorSearchVM ===");
+        for (Doctor d : doctorDAO.getList()) {
+            DoctorSearchVM vm = new DoctorSearchVM(d);
+            System.out.println(vm.getFullName() + " → login=" + vm.getLogin());
+        }
+        System.out.println("\n=== TEST LOGIN ===");
+
+        DoctorDAO dao = new DoctorDAO();
+
+// Exemple : login/password à tester
+        Doctor d = dao.checkLogin("alice", "password");
+
+        if (d != null) {
+            System.out.println("Connexion OK : " + d.getFirstName() + " " + d.getLastName());
+        } else {
+            System.out.println("Login ou mot de passe incorrect !");
+        }
+
 
         System.out.println("\n=== Consultations ===");
         for (Consultation c : consultationDAO.load()) {
@@ -67,18 +90,8 @@ public class testDAOs {
         patientDAO.delete(newPatient);
         System.out.println("Patient supprimé (id=" + newPatient.getId() + ")");
 
-        // --- 4) Test CREATE / DELETE sur Specialty ---
 
-        System.out.println("\n=== TEST CRUD SPECIALTY ===");
-
-        Specialty newSpec = new Specialty(null, "TEST_SPEC");
-        specialtyDAO.save(newSpec);
-        System.out.println("Après INSERT, specialty = " + newSpec);
-
-        specialtyDAO.delete(newSpec);
-        System.out.println("Specialty supprimée (id=" + newSpec.getId() + ")");
-
-        // --- 5) Test CREATE / DELETE sur Doctor ---
+        // --- 4) Test CREATE / DELETE sur Doctor ---
 
         System.out.println("\n=== TEST CRUD DOCTOR ===");
 

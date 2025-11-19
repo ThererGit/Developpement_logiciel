@@ -1,20 +1,15 @@
 package serveur;
 
-import Network.Requete;
-import Network.Reponse;
-import dao.*;   // tes DAO
-import entity.*;
-
+import ServeurGeneriqueTCP.*;
+import protocoleCAP.CAP;
 
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.net.ServerSocket;
-import java.net.Socket;
 import java.util.Properties;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
-public class ServeurConsultation {
+
+
+public class ServeurConsultation implements Logger {
 
     public static void main(String[] args) {
         new ServeurConsultation().start();
@@ -23,24 +18,24 @@ public class ServeurConsultation {
     private void start() {
         try {
             Properties props = new Properties();
-            props.load(new FileInputStream("server.properties"));
+            props.load(new FileInputStream("C:\\Users\\wther\\Desktop\\Dévellopement Logiciel\\DAO\\Projet_DAO\\src\\main\\resources\\server.properties"));
 
-            int port = Integer.parseInt(props.getProperty("PORT_CONSULTATION", "50000"));
+            int port = Integer.parseInt(props.getProperty("PORT_CONSULTATION", "50005"));
             int poolSize = Integer.parseInt(props.getProperty("POOL_SIZE", "5"));
 
-            ServerSocket serverSocket = new ServerSocket(port);
-            System.out.println("Serveur Consultation démarré sur le port " + port);
+            Protocole protocole = new CAP(this);
+            ThreadServeur serveur = new ThreadServeurPool(port, protocole, poolSize, this);
 
-            ExecutorService pool = Executors.newFixedThreadPool(poolSize);
-
-            while (true) {
-                Socket client = serverSocket.accept();
-                System.out.println("Nouveau client : " + client.getRemoteSocketAddress());
-                pool.submit(new ClientHandler(client));
-            }
+            serveur.start();
+            Trace("Serveur Consultation démarré sur le port " + port);
 
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    @Override
+    public void Trace(String message) {
+        System.out.println("[" + Thread.currentThread().getName() + "] " + message);
     }
 }

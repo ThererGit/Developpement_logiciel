@@ -35,13 +35,15 @@ public class DoctorDAO {
     // --- READ : charger tous les docteurs ---
     public ArrayList<Doctor> load() {
         try {
-            // version simple : on joint specialties pour avoir le nom
+            // On récupère aussi login et password
             String sql = """
-                    SELECT d.id       AS doctor_id,
+                    SELECT d.id        AS doctor_id,
                            d.last_name,
                            d.first_name,
-                           s.id       AS specialty_id,
-                           s.name     AS specialty_name
+                           d.login,
+                           d.password,
+                           s.id        AS specialty_id,
+                           s.name      AS specialty_name
                     FROM doctors d
                     LEFT JOIN specialties s ON d.specialty_id = s.id
                     ORDER BY d.last_name;
@@ -56,6 +58,8 @@ public class DoctorDAO {
                 Integer docId = rs.getInt("doctor_id");
                 String lastName = rs.getString("last_name");
                 String firstName = rs.getString("first_name");
+                String login = rs.getString("login");
+                String password = rs.getString("password");
 
                 Integer specId = rs.getInt("specialty_id");
                 Specialty spec = null;
@@ -64,7 +68,7 @@ public class DoctorDAO {
                     spec = new Specialty(specId, specName);
                 }
 
-                Doctor d = new Doctor(docId, spec, lastName, firstName);
+                Doctor d = new Doctor(docId, spec, lastName, firstName, login, password);
                 doctors.add(d);
             }
 
@@ -89,7 +93,15 @@ public class DoctorDAO {
 
             if (d.getId() != null) {
                 // UPDATE
-                String sql = "UPDATE doctors SET last_name = ?, first_name = ?, specialty_id = ? WHERE id = ?";
+                String sql = """
+                        UPDATE doctors
+                        SET last_name   = ?,
+                            first_name  = ?,
+                            specialty_id = ?,
+                            login       = ?,
+                            password    = ?
+                        WHERE id = ?
+                        """;
                 PreparedStatement stmt = connectDB.getConn().prepareStatement(sql);
 
                 stmt.setString(1, d.getLastName());
@@ -99,13 +111,18 @@ public class DoctorDAO {
                 } else {
                     stmt.setNull(3, Types.INTEGER);
                 }
-                stmt.setInt(4, d.getId());
+                stmt.setString(4, d.getLogin());
+                stmt.setString(5, d.getPassword());
+                stmt.setInt(6, d.getId());
 
                 stmt.executeUpdate();
                 stmt.close();
             } else {
                 // INSERT
-                String sql = "INSERT INTO doctors (last_name, first_name, specialty_id) VALUES (?, ?, ?)";
+                String sql = """
+                        INSERT INTO doctors (last_name, first_name, specialty_id, login, password)
+                        VALUES (?, ?, ?, ?, ?)
+                        """;
                 PreparedStatement stmt = connectDB.getConn().prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
 
                 stmt.setString(1, d.getLastName());
@@ -115,6 +132,8 @@ public class DoctorDAO {
                 } else {
                     stmt.setNull(3, Types.INTEGER);
                 }
+                stmt.setString(4, d.getLogin());
+                stmt.setString(5, d.getPassword());
 
                 stmt.executeUpdate();
 
@@ -155,4 +174,51 @@ public class DoctorDAO {
             Logger.getLogger(DoctorDAO.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
+
+    public Doctor checkLogin(String login, String password) {
+        try {
+            String sql = """
+                SELECT d.id, d.last_name, d.first_name, d.login, d.password,
+                       s.id AS specialty_id, s.name AS specialty_name
+                FROM doctors d
+                LEFT JOIN specialties s ON d.specialty_id = s.id
+                WHERE d.login = ? AND d.password = ?
+                """;
+
+            PreparedStatement stmt = connectDB.getConn().prepareStatement(sql);
+            stmt.setString(1, login);
+            stmt.setString(2, password);
+
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                Integer id = rs.getInt("id");
+                String lastName = rs.getString("last_name");
+                String firstName = rs.getString("first_name");
+
+                Integer specId = rs.getInt("specialty_id");
+                Specialty spec = null;
+                if (!rs.wasNull()) {
+                    spec = new Specialty(specId, rs.getString("specialty_name"));
+                }
+
+                rs.close();
+                stmt.close();
+
+                return new Doctor(id, spec, lastName, firstName, login, null);
+            }
+
+            rs.close();
+            stmt.close();
+
+        } catch (Exception ex) {
+            Logger.getLogger(DoctorDAO.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+        // login/password incorrects
+        return null;
+    }
+
+
+
 }

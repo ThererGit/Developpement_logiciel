@@ -11,6 +11,7 @@ public class DoctorSearchVM {
     private String lastName;
     private String firstName;
     private String specialtyName;
+    private String login;   // nouveau champ visible côté vue si besoin
 
     public DoctorSearchVM(Doctor doctor) {
         this.doctor = doctor;
@@ -18,6 +19,7 @@ public class DoctorSearchVM {
             this.id = doctor.getId();
             this.lastName = doctor.getLastName();
             this.firstName = doctor.getFirstName();
+            this.login = doctor.getLogin();
 
             Specialty spec = doctor.getSpecialty();
             if (spec != null) {
@@ -38,6 +40,7 @@ public class DoctorSearchVM {
             this.id = doctor.getId();
             this.lastName = doctor.getLastName();
             this.firstName = doctor.getFirstName();
+            this.login = doctor.getLogin();
 
             Specialty spec = doctor.getSpecialty();
             if (spec != null) {
@@ -64,6 +67,10 @@ public class DoctorSearchVM {
 
     public String getSpecialtyName() {
         return specialtyName;
+    }
+
+    public String getLogin() {
+        return login;
     }
 
     public String getFullName() {
