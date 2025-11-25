@@ -34,6 +34,8 @@ public class ServeurConsultation implements Logger {
         }
     }
 
+    //test github
+
     @Override
     public void Trace(String message) {
         System.out.println("[" + Thread.currentThread().getName() + "] " + message);
