@@ -8,12 +8,12 @@ import entity.Specialty;
 import java.sql.*;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Objects;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.time.format.DateTimeFormatter;
-
 
 public class ConsultationDAO {
 
@@ -41,6 +41,16 @@ public class ConsultationDAO {
     // --- READ : charger toutes les consultations ---
     public ArrayList<Consultation> load() {
         try {
+            // Debug DB / nombre brut
+            try (Statement st = connectDB.getConn().createStatement();
+                 ResultSet rsInfo = st.executeQuery(
+                         "SELECT DATABASE() AS db, COUNT(*) AS nb FROM consultations")) {
+                if (rsInfo.next()) {
+                    System.out.println("[DEBUG] DATABASE=" + rsInfo.getString("db")
+                            + " total consult=" + rsInfo.getInt("nb"));
+                }
+            }
+
             String sql = """
                     SELECT c.id          AS consultation_id,
                            c.date        AS consultation_date,
@@ -69,18 +79,34 @@ public class ConsultationDAO {
 
             while (rs.next()) {
                 Integer consId = rs.getInt("consultation_id");
+
+                // Date
                 java.sql.Date sqlDate = rs.getDate("consultation_date");
                 LocalDate date = null;
                 if (sqlDate != null) {
                     date = sqlDate.toLocalDate();
                 }
 
+                // Heure : on lit en String et on parse à la main
                 String hourStr = rs.getString("consultation_hour");
                 LocalTime hour = null;
                 if (hourStr != null && !hourStr.isBlank()) {
-                    hour = LocalTime.parse(hourStr);
+                    hourStr = hourStr.trim();
+                    try {
+                        // ISO_LOCAL_TIME gère "HH:mm" et "HH:mm:ss"
+                        hour = LocalTime.parse(hourStr);
+                    } catch (DateTimeParseException e1) {
+                        try {
+                            // au cas où ton MySQL renverrait un autre format, on ajoute un fallback
+                            DateTimeFormatter fmt = DateTimeFormatter.ofPattern("HH:mm:ss");
+                            hour = LocalTime.parse(hourStr, fmt);
+                        } catch (DateTimeParseException e2) {
+                            System.out.println("[ConsultationDAO] Heure invalide en DB : '" + hourStr + "'");
+                            // dernier recours : on met minuit pour éviter les NPE ailleurs
+                            hour = LocalTime.MIDNIGHT;
+                        }
+                    }
                 }
-
 
                 String reason = rs.getString("consultation_reason");
 

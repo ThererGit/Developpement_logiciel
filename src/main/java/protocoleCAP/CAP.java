@@ -10,6 +10,8 @@ import entity.*;
 import java.net.Socket;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.*;
 
 public class CAP implements Protocole {
@@ -42,6 +44,32 @@ public class CAP implements Protocole {
         return data.trim();
     }
 
+    /** Parse une date/heure envoyée par le client.
+     *  Accepte :
+     *    - format ISO : 2025-10-02T14:20
+     *    - format avec espace : 2025-10-02 14:20
+     *  Retourne null si aucun format ne passe.
+     */
+    private LocalDateTime parseClientDateTime(String s) {
+        if (s == null) return null;
+        s = s.trim();
+
+        // 1) Essayer format ISO (LocalDateTime.toString())
+        try {
+            return LocalDateTime.parse(s);
+        } catch (DateTimeParseException e1) {
+            // 2) Essayer avec espace : "yyyy-MM-dd HH:mm"
+            try {
+                DateTimeFormatter f = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+                return LocalDateTime.parse(s, f);
+            } catch (DateTimeParseException e2) {
+                logger.Trace("[CAP] parseClientDateTime -> format invalide pour '" + s + "'");
+                return null;
+            }
+        }
+    }
+
+
     @Override
     public Reponse TraiteRequete(Requete req, Socket socket) throws FinConnexionException {
         String cmd  = req.getDemande();
@@ -51,6 +79,10 @@ public class CAP implements Protocole {
         logger.Trace("Socket : " + socket);
         logger.Trace("Commande brute : '" + cmd + "'");
         logger.Trace("Data brute     : '" + data + "'");
+
+        // LOG IMPORTANT : requête exacte reçue du client
+        logger.Trace("[CAP] >>> Requête reçue du client : cmd='" + cmd + "', data='" + data + "'");
+
         System.out.println("[CAP] Requête reçue -> cmd='" + cmd + "', data='" + data + "'");
 
         switch (cmd) {
@@ -98,6 +130,7 @@ public class CAP implements Protocole {
 
         return rep;
     }
+
 
     // ---------------- LOGIN ----------------
 
@@ -199,7 +232,13 @@ public class CAP implements Protocole {
             return new Reponse(false, 0);
         }
 
-        LocalDateTime debut = LocalDateTime.parse(p[0].trim());
+        // ⬇⬇⬇ ici : on utilise la fonction tolérante ⬇⬇⬇
+        LocalDateTime debut = parseClientDateTime(p[0]);
+        if (debut == null) {
+            logger.Trace("ADD_CONSULTATION : date/heure invalide '" + p[0] + "'");
+            return new Reponse(false, 0);
+        }
+
         int duree = Integer.parseInt(p[1].trim());
         int nb = Integer.parseInt(p[2].trim());
 
@@ -245,7 +284,7 @@ public class CAP implements Protocole {
         logger.Trace("Data nettoyée : '" + data + "'");
         System.out.println("[CAP] handleUpdateConsultation data nettoyée : '" + data + "'");
 
-        String[] p = data.split(";", -1);
+        String[] p = data.split(",", -1);
         logger.Trace("UPDATE_CONSULTATION split : " + Arrays.toString(p));
         if (p.length < 2) {
             logger.Trace("UPDATE_CONSULTATION : format invalide");
@@ -254,7 +293,13 @@ public class CAP implements Protocole {
         }
 
         int id = Integer.parseInt(p[0].trim());
-        LocalDateTime nv = LocalDateTime.parse(p[1].trim());
+
+        // ⬇⬇⬇ ici : on utilise la fonction tolérante ⬇⬇⬇
+        LocalDateTime nv = parseClientDateTime(p[1]);
+        if (nv == null) {
+            logger.Trace("UPDATE_CONSULTATION : date/heure invalide '" + p[1] + "'");
+            return new Reponse(false, id);
+        }
 
         Integer idPatient = null;
         String raison = null;
@@ -294,18 +339,17 @@ public class CAP implements Protocole {
         return new Reponse(true, id);
     }
 
+
     // ---------------- SEARCH_CONSULTATIONS ----------------
 
     private Reponse handleSearchConsultations(String data, Doctor doctor) {
 
         logger.Trace("=== handleSearchConsultations ===");
         logger.Trace("Data brute : '" + data + "'");
-        System.out.println("[CAP] handleSearchConsultations data brute : '" + data + "'");
 
         data = cleanData(data);
 
         logger.Trace("Data nettoyée : '" + data + "'");
-        System.out.println("[CAP] handleSearchConsultations data nettoyée : '" + data + "'");
 
         Integer idPatient = null;
         LocalDate date = null;
@@ -313,12 +357,10 @@ public class CAP implements Protocole {
         // Cas client : "all." ou "all" ou chaîne vide -> aucun filtre
         if (data.isEmpty() || data.equalsIgnoreCase("all")) {
             logger.Trace("SEARCH_CONSULTATIONS : aucun filtre (ALL)");
-            System.out.println("[CAP] SEARCH_CONSULTATIONS -> ALL (pas de filtre patient/date)");
         } else {
             // Ancien format : "idPatient,date"
             String[] p = data.split(",", -1);
             logger.Trace("SEARCH_CONSULTATIONS split : " + Arrays.toString(p));
-            System.out.println("[CAP] SEARCH_CONSULTATIONS split : " + Arrays.toString(p));
 
             // patient
             if (p.length > 0 && !p[0].isBlank() &&
@@ -327,10 +369,8 @@ public class CAP implements Protocole {
                 try {
                     idPatient = Integer.parseInt(p[0].trim());
                     logger.Trace("Filtre idPatient=" + idPatient);
-                    System.out.println("[CAP] Filtre idPatient=" + idPatient);
                 } catch (NumberFormatException e) {
                     logger.Trace("idPatient non numérique : '" + p[0] + "', filtre patient ignoré");
-                    System.out.println("[CAP] ATTENTION : idPatient non numérique '" + p[0] + "', on ignore le filtre patient");
                     idPatient = null;
                 }
             }
@@ -398,7 +438,7 @@ public class CAP implements Protocole {
         }
 
         logger.Trace("SEARCH_CONSULTATIONS : " + count + " consultation(s) trouvée(s)");
-        System.out.println("[CAP] SEARCH_CONSULTATIONS -> " + count + " consultation(s) renvoyée(s)");
+
 
         return rep;
     }
@@ -408,17 +448,15 @@ public class CAP implements Protocole {
     private Reponse handleDeleteConsultation(String data, Doctor doctor) {
 
         logger.Trace("=== handleDeleteConsultation ===");
-        logger.Trace("Data brute : '" + data + "'");
-        System.out.println("[CAP] handleDeleteConsultation data brute : '" + data + "'");
+        logger.Trace("[CAP] handleDeleteConsultation data brute : '" + data + "'");
 
         data = cleanData(data);
 
-        logger.Trace("Data nettoyée : '" + data + "'");
-        System.out.println("[CAP] handleDeleteConsultation data nettoyée : '" + data + "'");
+        logger.Trace("[CAP] handleDeleteConsultation data nettoyée : '" + data + "'");
+
 
         int id = Integer.parseInt(data.trim());
         logger.Trace("Demande suppression consultation id=" + id);
-        System.out.println("[CAP] Demande suppression consultation id=" + id);
 
         Consultation c = consultationDAO.getById(id);
         if (c == null ||
@@ -432,7 +470,6 @@ public class CAP implements Protocole {
 
         consultationDAO.delete(c);
         logger.Trace("DELETE_CONSULTATION OK pour id=" + id);
-        System.out.println("[CAP] DELETE_CONSULTATION OK pour id=" + id);
         return new Reponse(true, id);
     }
 }

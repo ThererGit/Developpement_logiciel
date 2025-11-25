@@ -17,7 +17,7 @@ public abstract class ThreadClient extends Thread {
     private static int numCourant = 1;
 
     public ThreadClient(Protocole protocole, Socket csocket, Logger logger) throws IOException {
-        super("TH Client " + numCourant + " (protocole=" + protocole.getNom() + ")");
+        super("TH Client " + numCourant );
         this.protocole = protocole;
         this.csocket = csocket;
         this.logger = logger;
@@ -25,7 +25,7 @@ public abstract class ThreadClient extends Thread {
     }
 
     public ThreadClient(Protocole protocole, ThreadGroup groupe, Logger logger) throws IOException {
-        super(groupe,"TH Client " + numCourant + " (protocole=" + protocole.getNom() + ")");
+        super(groupe,"TH Client " + numCourant );
         this.protocole = protocole;
         this.csocket = null;
         this.logger = logger;
@@ -53,7 +53,7 @@ public abstract class ThreadClient extends Thread {
                 logger.Trace("Objet reçu : " + obj);
 
                 if (!(obj instanceof Requete req)) {
-                    logger.Trace("❌ Reçu objet NON–REQUETE : " + obj.getClass());
+                    logger.Trace("Reçu objet NON–REQUETE : " + obj.getClass());
                     oos.writeObject("ERREUR : objet non supporté");
                     continue;
                 }
