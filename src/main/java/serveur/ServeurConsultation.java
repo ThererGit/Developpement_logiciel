@@ -1,12 +1,11 @@
 package serveur;
 
-import ServeurGeneriqueTCP.*;
-import protocoleCAP.CAP;
 
-import java.io.FileInputStream;
+import java.io.InputStream;
 import java.io.IOException;
 import java.util.Properties;
-
+import ServeurGeneriqueTCP.*;
+import protocoleCAP.CAP; import java.io.FileInputStream; import java.io.IOException; import java.util.Properties;
 
 
 public class ServeurConsultation implements Logger {
@@ -18,7 +17,18 @@ public class ServeurConsultation implements Logger {
     private void start() {
         try {
             Properties props = new Properties();
-            props.load(new FileInputStream("C:\\Users\\wther\\Desktop\\Dévellopement Logiciel\\DAO\\Projet_DAO\\src\\main\\resources\\server.properties"));
+
+            try (InputStream input = getClass()
+                    .getClassLoader()
+                    .getResourceAsStream("server.properties")) {
+
+                if (input == null) {
+                    Trace("Erreur : impossible de charger server.properties !");
+                    return;
+                }
+
+                props.load(input);
+            }
 
             int port = Integer.parseInt(props.getProperty("PORT_CONSULTATION", "50005"));
             int poolSize = Integer.parseInt(props.getProperty("POOL_SIZE", "5"));
@@ -34,10 +44,11 @@ public class ServeurConsultation implements Logger {
         }
     }
 
-    //test github 4
+    //test github
 
     @Override
     public void Trace(String message) {
         System.out.println("[" + Thread.currentThread().getName() + "] " + message);
     }
 }
+
