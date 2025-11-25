@@ -115,7 +115,7 @@ public class CAP implements Protocole {
         switch (cmd) {
             case "ADD_PATIENT" -> rep = handleAddPatient(data);
             case "ADD_CONSULTATION" -> rep = handleAddConsultation(data, doctor);
-            case "UPDATE_CONSULTATION" -> rep = handleUpdateConsultation(data, doctor);
+            case "UPDATE_CONSULTATION" -> rep = handleUpdateConsultation(req, data, doctor);
             case "SEARCH_CONSULTATIONS" -> rep = handleSearchConsultations(data, doctor);
             case "DELETE_CONSULTATION" -> rep = handleDeleteConsultation(data, doctor);
             default -> {
@@ -273,7 +273,7 @@ public class CAP implements Protocole {
 
     // ---------------- UPDATE_CONSULTATION ----------------
 
-    private Reponse handleUpdateConsultation(String data, Doctor doctor) {
+    private Reponse handleUpdateConsultation(Requete req, String data, Doctor doctor) {
 
         logger.Trace("=== handleUpdateConsultation ===");
         logger.Trace("Data brute : '" + data + "'");
@@ -285,59 +285,71 @@ public class CAP implements Protocole {
         System.out.println("[CAP] handleUpdateConsultation data nettoyée : '" + data + "'");
 
         String[] p = data.split(",", -1);
-        logger.Trace("UPDATE_CONSULTATION split : " + Arrays.toString(p));
-        if (p.length < 2) {
-            logger.Trace("UPDATE_CONSULTATION : format invalide");
-            System.out.println("[CAP] UPDATE_CONSULTATION format invalide");
+        if (p.length < 1) {
+            logger.Trace("UPDATE_CONSULTATION : format invalide (aucun champ)");
             return new Reponse(false, 0);
         }
 
-        int id = Integer.parseInt(p[0].trim());
+        // id consultation obligatoire
+        int id;
+        try {
+            id = Integer.parseInt(p[0].trim());
+        } catch (NumberFormatException e) {
+            logger.Trace("UPDATE_CONSULTATION : id consultation non numérique '" + p[0] + "'");
+            return new Reponse(false, 0);
+        }
 
-        // ⬇⬇⬇ ici : on utilise la fonction tolérante ⬇⬇⬇
-        LocalDateTime nv = parseClientDateTime(p[1]);
+        // champs optionnels
+        String nom    = (p.length > 1) ? p[1].trim() : "";
+        String prenom = (p.length > 2) ? p[2].trim() : "";
+        String raison = (p.length > 3) ? p[3].trim() : "";
+
+        // date obligatoire dans l'objet Requete
+        LocalDateTime nv = req.getDate();
         if (nv == null) {
-            logger.Trace("UPDATE_CONSULTATION : date/heure invalide '" + p[1] + "'");
+            logger.Trace("UPDATE_CONSULTATION : date absente dans Requete");
             return new Reponse(false, id);
         }
 
-        Integer idPatient = null;
-        String raison = null;
-
-        if (p.length > 2 && !p[2].isBlank())
-            idPatient = Integer.parseInt(p[2].trim());
-        if (p.length > 3 && !p[3].isBlank())
-            raison = p[3].trim();
-
-        logger.Trace("UPDATE_CONSULTATION id=" + id + ", nv=" + nv + ", idPatient=" + idPatient + ", raison=" + raison);
-        System.out.println("[CAP] UPDATE_CONSULTATION id=" + id + ", nv=" + nv + ", idPatient=" + idPatient + ", raison=" + raison);
+        logger.Trace("UPDATE_CONSULTATION id=" + id +
+                ", nv=" + nv +
+                ", nom='" + nom + "'" +
+                ", prenom='" + prenom + "'" +
+                ", raison='" + raison + "'");
 
         Consultation c = consultationDAO.getById(id);
         if (c == null || !c.getDoctor().getId().equals(doctor.getId())) {
             logger.Trace("UPDATE_CONSULTATION : consultation introuvable ou doctor différent");
-            System.out.println("[CAP] UPDATE_CONSULTATION refusée : consultation introuvable ou mauvais doctor");
             return new Reponse(false, id);
         }
 
+        // ===== Mise à jour de la date =====
         c.setDate(nv.toLocalDate());
         c.setHour(nv.toLocalTime());
 
-        if (c.getPatient() == null && idPatient != null) {
-            Patient ptn = patientDAO.getById(idPatient);
-            if (ptn == null) {
-                logger.Trace("UPDATE_CONSULTATION : patient " + idPatient + " introuvable");
-                System.out.println("[CAP] UPDATE_CONSULTATION refusée : patient " + idPatient + " introuvable");
-                return new Reponse(false, id);
-            }
-            c.setPatient(ptn);
+        // ===== Mise à jour de la raison si fournie =====
+        if (!raison.isBlank()) {
             c.setReason(raison);
         }
 
+        // ===== Mise à jour du patient seulement si nom/prenom non vides =====
+        if (!nom.isBlank() || !prenom.isBlank()) {
+            Patient patient = patientDAO.findByNameAndFirstName(nom, prenom);
+            if (patient == null) {
+                logger.Trace("UPDATE_CONSULTATION : patient introuvable " + nom + " " + prenom);
+                return new Reponse(false, id);
+            }
+            c.setPatient(patient);
+        } // sinon : on garde le patient actuel
+
         consultationDAO.save(c);
+
         logger.Trace("UPDATE_CONSULTATION OK pour id=" + id);
         System.out.println("[CAP] UPDATE_CONSULTATION OK pour id=" + id);
         return new Reponse(true, id);
     }
+
+
 
 
     // ---------------- SEARCH_CONSULTATIONS ----------------

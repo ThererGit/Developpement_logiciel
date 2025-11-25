@@ -134,4 +134,31 @@ public class PatientDAO {
             Logger.getLogger(PatientDAO.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
+
+    public Patient findByNameAndFirstName(String nom, String prenom) {
+        try {
+            String sql = "SELECT * FROM patients WHERE last_name = ? AND first_name = ? LIMIT 1";
+            PreparedStatement stmt = connectDB.getConn().prepareStatement(sql);
+            stmt.setString(1, nom);
+            stmt.setString(2, prenom);
+
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                Integer id = rs.getInt("id");
+                LocalDate birth = rs.getDate("birth_date") != null
+                        ? rs.getDate("birth_date").toLocalDate()
+                        : null;
+
+                return new Patient(id, nom, prenom, birth);
+            }
+            return null;
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+
 }
